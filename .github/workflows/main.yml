@@ -1,0 +1,44 @@
+name: Video Indir ve Sikistir
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Indirilecek Video Linki (YouTube vb.)'
+        required: true
+        type: string
+      max_resolution:
+        description: 'Maksimum Cozunurluk (1080, 720, 480 vb.)'
+        required: false
+        default: '1080'
+        type: string
+
+jobs:
+  download-and-compress:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Gerekli Araclari Kur (yt-dlp, ffmpeg, 7zip)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg p7zip-full python3-pip
+          pip install -U yt-dlp
+
+      - name: Videoyu Sessiz ve En Dusuk Boyutta Indir
+        run: |
+          mkdir -p output
+          yt-dlp -f "bv*[height<=${{ github.event.inputs.max_resolution }}][vcodec^=av01]/bv*[height<=${{ github.event.inputs.max_resolution }}][vcodec^=vp9]/bv*[height<=${{ github.event.inputs.max_resolution }}]" \
+          -o "output/%(title)s.%(ext)s" \
+          "${{ github.event.inputs.video_url }}"
+
+      - name: 7-Zip Ultra Seviyede Sikistir
+        run: |
+          7z a -t7z -m0=lzma2 -mx=9 -mfb=64 -md=64m -ms=on arsivlenmis_video.7z output/*
+
+      - name: Arsivi Indirilebilir Yap (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sikistirilmis-video-arsivi
+          path: arsivlenmis_video.7z
+          retention-days: 3
+          
